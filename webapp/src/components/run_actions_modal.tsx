@@ -9,8 +9,7 @@ import styled from 'styled-components';
 import {hideRunActionsModal} from 'src/actions';
 import {isRunActionsModalVisible} from 'src/selectors';
 import {PlaybookRun} from 'src/types/playbook_run';
-import {updateRunActions} from 'src/client';
-
+import {useUpdateRun} from 'src/graphql/hooks';
 import Action from 'src/components/actions_modal_action';
 import Trigger from 'src/components/actions_modal_trigger';
 import ActionsModal, {ActionsContainer, TriggersContainer} from 'src/components/actions_modal';
@@ -31,9 +30,13 @@ const RunActionsModal = ({playbookRun, readOnly}: Props) => {
     const [broadcastToChannelsEnabled, setBroadcastToChannelsEnabled] = useState(playbookRun.status_update_broadcast_channels_enabled);
     const [sendOutgoingWebhookEnabled, setSendOutgoingWebhookEnabled] = useState(playbookRun.status_update_broadcast_webhooks_enabled);
 
+    const [createChannelMemberEnabled, setCreateChannelMemberEnabled] = useState(playbookRun.create_channel_member_on_new_participant);
+    const [removeChannelMemberEnabled, setRemoveChannelMemberEnabled] = useState(playbookRun.remove_channel_member_on_removed_participant);
+
     const [channelIds, setChannelIds] = useState(playbookRun.broadcast_channel_ids);
     const [webhooks, setWebhooks] = useState(playbookRun.webhook_on_status_update_urls);
     const [isValid, setIsValid] = useState<boolean>(true);
+    const updateRun = useUpdateRun(playbookRun.id);
 
     const onHide = () => {
         dispatch(hideRunActionsModal());
@@ -47,12 +50,13 @@ const RunActionsModal = ({playbookRun, readOnly}: Props) => {
 
     const onSave = () => {
         dispatch(hideRunActionsModal());
-
-        updateRunActions(playbookRun.id, {
-            status_update_broadcast_channels_enabled: broadcastToChannelsEnabled,
-            broadcast_channel_ids: channelIds,
-            status_update_broadcast_webhooks_enabled: sendOutgoingWebhookEnabled,
-            webhook_on_status_update_urls: webhooks,
+        updateRun({
+            statusUpdateBroadcastChannelsEnabled: broadcastToChannelsEnabled,
+            broadcastChannelIDs: channelIds,
+            statusUpdateBroadcastWebhooksEnabled: sendOutgoingWebhookEnabled,
+            webhookOnStatusUpdateURLs: webhooks,
+            createChannelMemberOnNewParticipant: createChannelMemberEnabled,
+            removeChannelMemberOnRemovedParticipant: removeChannelMemberEnabled,
         });
     };
 
@@ -110,6 +114,32 @@ const RunActionsModal = ({playbookRun, readOnly}: Props) => {
                                 {formatMessage({defaultMessage: 'Please enter one webhook per line'})}
                             </HelpText>
                         </Action>
+                    </ActionsContainer>
+                </Trigger>
+
+                <Trigger
+                    title={formatMessage({defaultMessage: 'When a participant joins the run'})}
+                >
+                    <ActionsContainer>
+                        <Action
+                            enabled={createChannelMemberEnabled}
+                            title={formatMessage({defaultMessage: 'Add them to the run channel'})}
+                            editable={!readOnly}
+                            onToggle={() => setCreateChannelMemberEnabled(!createChannelMemberEnabled)}
+                        />
+                    </ActionsContainer>
+                </Trigger>
+
+                <Trigger
+                    title={formatMessage({defaultMessage: 'When a participant leaves the run'})}
+                >
+                    <ActionsContainer>
+                        <Action
+                            enabled={removeChannelMemberEnabled}
+                            title={formatMessage({defaultMessage: 'Remove them from the run channel'})}
+                            editable={!readOnly}
+                            onToggle={() => setRemoveChannelMemberEnabled(!removeChannelMemberEnabled)}
+                        />
                     </ActionsContainer>
                 </Trigger>
             </TriggersContainer>
