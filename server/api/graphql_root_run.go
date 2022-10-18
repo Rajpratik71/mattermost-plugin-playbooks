@@ -22,8 +22,7 @@ func (r *RunRootResolver) Run(ctx context.Context, args struct {
 	userID := c.r.Header.Get("Mattermost-User-ID")
 
 	if err := c.permissions.RunView(userID, args.ID); err != nil {
-		c.logger.WithError(err).Warn("Not authorized")
-		return nil, errors.New("Not authorized")
+		return nil, err
 	}
 
 	run, err := c.playbookRunService.GetPlaybookRun(args.ID)
@@ -254,10 +253,6 @@ func (r *RunRootResolver) ChangeRunOwner(ctx context.Context, args struct {
 
 	if err := c.permissions.RunManageProperties(requesterID, args.RunID); err != nil {
 		return "", errors.Wrap(err, "attempted to modify the run owner without permissions")
-	}
-
-	if err := c.permissions.RunManageProperties(args.OwnerID, args.RunID); err != nil {
-		return "", errors.Wrap(err, "new owner doesn't have permissions to the run")
 	}
 
 	if err := c.playbookRunService.ChangeOwner(args.RunID, requesterID, args.OwnerID); err != nil {
