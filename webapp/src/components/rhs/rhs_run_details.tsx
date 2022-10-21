@@ -5,7 +5,9 @@ import React, {useEffect, useRef} from 'react';
 import Scrollbars from 'react-custom-scrollbars';
 import {useDispatch, useSelector} from 'react-redux';
 
-import {FormattedMessage} from 'react-intl';
+import {FormattedMessage, useIntl} from 'react-intl';
+
+import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 
 import {
     renderThumbHorizontal,
@@ -25,12 +27,18 @@ import {useTutorialStepper} from '../tutorial/tutorial_tour_tip/manager';
 import {browserHistory} from 'src/webapp_globals';
 import {usePlaybookRunViewTelemetry} from 'src/hooks/telemetry';
 import {PlaybookRunViewTarget} from 'src/types/telemetry';
+import {useToaster} from 'src/components/backstage/toast_banner';
+import {ToastStyle} from 'src/components/backstage/toast';
+import {useParticipateInRun} from 'src/hooks';
 
 const RHSRunDetails = () => {
     const dispatch = useDispatch();
+    const {formatMessage} = useIntl();
     const scrollbarsRef = useRef<Scrollbars>(null);
+    const currentUserId = useSelector(getCurrentUserId);
 
     const playbookRun = useSelector(currentPlaybookRun);
+    const isParticipant = playbookRun?.participant_ids.includes(currentUserId);
     usePlaybookRunViewTelemetry(PlaybookRunViewTarget.ChannelsRHSDetails, playbookRun?.id);
 
     const prevStatus = usePrevious(playbookRun?.current_status);
@@ -60,6 +68,18 @@ const RHSRunDetails = () => {
         }
     }, [runDetailsStep]);
 
+    const {ParticipateConfirmModal, showParticipateConfirm} = useParticipateInRun(playbookRun?.id || '', 'channel_rhs');
+    const addToast = useToaster().add;
+    const displayReadOnlyToast = () => {
+        addToast({
+            content: formatMessage({defaultMessage: 'Become a participant to interact with this run'}),
+            toastStyle: ToastStyle.Informational,
+            buttonName: formatMessage({defaultMessage: 'Participate'}),
+            buttonCallback: showParticipateConfirm,
+            iconName: 'account-plus-outline',
+        });
+    };
+
     const rhsContainerPunchout = useMeasurePunchouts(
         ['rhsContainer'],
         [],
@@ -84,15 +104,20 @@ const RHSRunDetails = () => {
                     renderView={renderView}
                     style={{position: 'absolute'}}
                 >
-                    <RHSAbout playbookRun={playbookRun}/>
+                    <RHSAbout
+                        playbookRun={playbookRun}
+                        readOnly={!isParticipant}
+                        onReadOnlyInteract={displayReadOnlyToast}
+                    />
                     <RHSChecklistList
                         playbookRun={playbookRun}
                         parentContainer={ChecklistParent.RHS}
-                        viewerMode={false}
+                        viewerMode={!isParticipant}
+                        onViewerModeInteract={displayReadOnlyToast}
                     />
                 </Scrollbars>
             </RHSContent>
-
+            {ParticipateConfirmModal}
             {showRunDetailsSidePanelStep && (
                 <TutorialTourTip
                     title={<FormattedMessage defaultMessage='View run details in a side panel'/>}
